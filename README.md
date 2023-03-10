@@ -1,19 +1,17 @@
-Open a terminal or command prompt and navigate to the directory where the steganography.py script is saved.
+To use this steganography tool, follow these steps:
 
-To encode a message in an image, use the following command:
-`python steganography.py encode <image_path> -m <message>`
+Save the code in a Python file, e.g. steganography.py.
 
-Replace <image_path> with the path to the image file that you want to encode the message in, and replace <message> with the message that you want to encode. For example:
-`python steganography.py encode my_image.png -m "Hello, world!"`
+Open a terminal or command prompt and navigate to the directory containing the Python file.
 
-This will encode the message "Hello, world!" into the image file my_image.png and save the encoded image as encoded_my_image.png in the same directory.
+Run the following command to encode a message in an image:
 
-To decode a message from an encoded image, use the following command:
-`python steganography.py decode <image_path>`
+`python steganography.py encode image_path -m "message to encode" -o output_image_path`
 
-Replace <image_path> with the path to the encoded image file that you want to decode the message from. For example:
-`python steganography.py decode encoded_my_image.png`
+Replace image_path with the path to the input image file, "message to encode" with the message you want to encode, and output_image_path with the desired path to the output image file. If the -o parameter is not provided, the encoded image will be saved as encoded_image_path in the same directory as the input image file.
 
-This will decode the message from the encoded image file encoded_my_image.png and print the decoded message in the terminal.
+Run the following command to decode a message from an image:
 
-That's it! Just follow these steps to use the steganography tool with terminal input using parameters.
+`python steganography.py decode image_path`
+
+Replace image_path with the path to the input image file. The decoded message will be printed to the console.
