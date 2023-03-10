@@ -1,99 +1,85 @@
-# Required Libraries
+# Import necessary modules
+import argparse
 from PIL import Image
 
-# Function to convert a string to binary
-def string_to_binary(message):
-    binary_message = ''.join(format(ord(i), '08b') for i in message)
-    return binary_message
+# Define a function to encode a message into an image using the LSB technique
+def encode_image(image_path, message):
+    """
+    Encode the given message into the image using the LSB technique
+    """
+    # Open the image
+    img = Image.open(image_path)
 
-# Function to convert binary to string
-def binary_to_string(binary):
+    # Check if the message can fit in the image
+    width, height = img.size
+    pixels = img.load()
+    message_length = len(message)
+    if message_length * 8 > width * height * 3:
+        raise ValueError("Message too large to fit in image")
+
+    # Encode the message into the image
+    message += "~" * ((width * height * 3 // 8) - message_length)
+    message_bits = "".join([format(ord(c), '08b') for c in message])
+    bit_index = 0
+    for y in range(height):
+        for x in range(width):
+            r, g, b = pixels[x, y]
+            if bit_index < len(message_bits):
+                pixels[x, y] = (r & 0b11111110 | int(message_bits[bit_index]), g & 0b11111110 | int(message_bits[bit_index+1]), b & 0b11111110 | int(message_bits[bit_index+2]))
+            bit_index += 3
+
+    # Save the encoded image
+    img.save("encoded_" + image_path)
+
+# Define a function to decode a message from an image using the LSB technique
+def decode_image(image_path):
+    """
+    Decode the message from the image using the LSB technique
+    """
+    # Open the image
+    img = Image.open(image_path)
+
+    # Decode the message from the image
+    width, height = img.size
+    pixels = img.load()
+    message_bits = ""
+    for y in range(height):
+        for x in range(width):
+            r, g, b = pixels[x, y]
+            message_bits += bin(r)[-1] + bin(g)[-1] + bin(b)[-1]
     message = ""
-    for i in range(0, len(binary), 8):
-        message += chr(int(binary[i:i+8], 2))
+    for i in range(0, len(message_bits), 8):
+        if message_bits[i:i+8] != "01111110":
+            message += chr(int(message_bits[i:i+8], 2))
+        else:
+            break
+
     return message
 
-# Function to embed a message in an image
-def embed_message(image_path, message):
-    # Open the image
-    image = Image.open(image_path)
+# Define the main function to handle command-line arguments
+def main():
+    # Define the command-line arguments
+    parser = argparse.ArgumentParser(description='Steganography tool for hiding messages in images.')
+    parser.add_argument('mode', choices=['encode', 'decode'], help='The mode of operation: "encode" or "decode".')
+    parser.add_argument('image', help='The path of the image file.')
+    parser.add_argument('-m', '--message', help='The message to encode in the image.')
+    args = parser.parse_args()
 
-    # Convert message to binary
-    binary_message = string_to_binary(message)
+    # Check the mode of operation
+    if args.mode == 'encode':
+        # Check if a message argument is provided
+        if not args.message:
+            print('Error: message argument is required in encode mode')
+            return
+        # Call the encode_image function with the image path and message
+        encode_image(args.image, args.message)
+        print('Message encoded in the image.')
+    else:
+        # Call the decode_image function with the image path and print the decoded message
+        message = decode_image(args.image)
+        print('Decoded message:', message)
 
-    # Check if the image is large enough to embed the message
-    if len(binary_message) > image.size[0] * image.size[1]:
-        raise ValueError("Image not large enough to embed message")
-
-    # Iterate through each pixel in the image
-    pixel_index = 0
-    for x in range(image.size[0]):
-        for y in range(image.size[1]):
-            # Get the pixel at the current location
-            pixel = list(image.getpixel((x, y)))
-
-            # Embed the message in the least significant bit of each color channel
-            if pixel_index < len(binary_message):
-                pixel[0] = pixel[0] & ~1 | int(binary_message[pixel_index])
-                pixel[1] = pixel[1] & ~1 | int(binary_message[pixel_index+1])
-                pixel[2] = pixel[2] & ~1 | int(binary_message[pixel_index+2])
-
-            # Update the pixel in the image
-            image.putpixel((x, y), tuple(pixel))
-
-            # Increment the pixel index
-            pixel_index += 3
-
-    # Save the modified image
-    image.save("embedded.png")
-
-    print("Message embedded successfully")
-
-# Function to extract a message from an image
-def extract_message(image_path):
-    # Open the image
-    image = Image.open(image_path)
-
-    # Initialise a variable to hold the binary message
-    binary_message = ""
-
-    # Iterate through each pixel in the image
-    for x in range(image.size[0]):
-        for y in range(image.size[1]):
-            # Get the pixel at the current location
-            pixel = list(image.getpixel((x, y)))
-
-            # Extract the least significant bit from each color channel
-            binary_message += str(pixel[0] & 1)
-            binary_message += str(pixel[1] & 1)
-            binary_message += str(pixel[2] & 1)
-
-    # Convert the binary message to text
-    message = binary_to_string(binary_message)
-
-    print("Message extracted successfully:")
-    print(message)
-
-# User Instructions
-print("Welcome to Steganography tool! Please choose one of the following options:")
-print("1. Embed message in an image")
-print("2. Extract message from an image")
-
-# Get user input
-option = input("Enter your choice (1 or 2): ")
-
-if option == "1":
-    # Get image path and message from user
-    image_path = input("Enter the path of the image file: ")
-    message = input("Enter the message to embed: ")
-
-    # Embed the message in the image
-    embed_message(image_path, message)
-
-elif option == "2":
-    # Get image path from user
-    image_path = input("Enter the path of the image file: ")
-
-    # Extract the message from the image
-    extract_message(image_path)
-
+# Call the main function if this is the main module
+if __name__ == '__main__':
+    main()
+    
