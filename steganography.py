@@ -1,81 +1,67 @@
-import argparse
 from PIL import Image
+import argparse
 
-# Define command line arguments
-parser = argparse.ArgumentParser(description='Encode or decode a message in an image using steganography.')
-parser.add_argument('mode', choices=['encode', 'decode'], help='Select whether to encode or decode a message.')
-parser.add_argument('input_file', help='Path to the input image file.')
-parser.add_argument('-m', '--message', help='The message to be encoded in the image.')
-parser.add_argument('-o', '--output_file', help='Path to the output image file.')
-args = parser.parse_args()
-
-# Define the function to encode a message into an image
-def encode_message(image, message):
-    # Convert the message into binary
-    binary_message = ''.join(format(ord(char), '08b') for char in message)
-    # Get the dimensions of the image
+def encode_image(image_path, message):
+    image = Image.open(image_path)
+    image = image.convert('RGB')
     width, height = image.size
-    # Calculate the maximum number of bits we can encode in the image
-    max_bits = width * height * 3 // 8
-    # Make sure the message can fit in the image
-    if len(binary_message) > max_bits:
-        raise ValueError("Message is too long to be encoded in the image.")
-    # Add a sentinel at the end of the message to indicate the end of the message
-    binary_message += '1111111100000000'
-    # Encode the message into the image
-    pixels = list(image.getdata())
-    # Replace the least significant bit of each color channel with a bit of the message
-    for i, pixel in enumerate(pixels):
-        red, green, blue = pixel
-        if i < len(binary_message):
-            red = red & ~1 | int(binary_message[i])
-        if i+1 < len(binary_message):
-            green = green & ~1 | int(binary_message[i+1])
-        if i+2 < len(binary_message):
-            blue = blue & ~1 | int(binary_message[i+2])
-        pixels[i] = (red, green, blue)
-    # Create a new image with the encoded message
-    encoded_image = Image.new(image.mode, image.size)
-    encoded_image.putdata(pixels)
-    return encoded_image
-
-# Define the function to decode a message from an image
-def decode_message(image):
-    # Get the pixel data from the image
-    pixels = list(image.getdata())
-    # Extract the least significant bit of each color channel to get the message
-    binary_message = ''
-    for pixel in pixels:
-        red, green, blue = pixel
-        binary_message += str(red & 1)
-        binary_message += str(green & 1)
-        binary_message += str(blue & 1)
-    # Convert the binary message back into text
-    message = ''
-    for i in range(0, len(binary_message), 8):
-        byte = binary_message[i:i+8]
-        message += chr(int(byte, 2))
-        if message[-16:] == '1111111100000000':
-            message = message[:-16]
+    pixel_index = 0
+    message_index = 0
+    message += "\n"
+    binary_message = ''.join([format(ord(i), "08b") for i in message])
+    message_length = len(binary_message)
+    if message_length > (width * height):
+        raise ValueError("Message is too long to encode in the provided image.")
+    for row in range(height):
+        for col in range(width):
+            r, g, b = image.getpixel((col, row))
+            if message_index < message_length:
+                pixel_binary = f"{r:08b}{g:08b}{b:08b}"
+                new_pixel_binary = pixel_binary[:7] + binary_message[pixel_index] + pixel_binary[8:]
+                new_r = int(new_pixel_binary[:8], 2)
+                new_g = int(new_pixel_binary[8:16], 2)
+                new_b = int(new_pixel_binary[16:], 2)
+                image.putpixel((col, row), (new_r, new_g, new_b))
+                pixel_index += 1
+                message_index += 1
+            else:
+                break
+        if message_index >= message_length:
             break
-    return message
+    image.save("encoded_image.png")
+    print("Message encoded successfully in the provided image.")
 
-# Load the input image
-image = Image.open(args.input_file)
+def decode_image(image_path):
+    image = Image.open(image_path)
+    image = image.convert('RGB')
+    width, height = image.size
+    binary_message = ""
+    for row in range(height):
+        for col in range(width):
+            r, g, b = image.getpixel((col, row))
+            binary_message += f"{r:08b}"[-1] + f"{g:08b}"[-1] + f"{b:08b}"[-1]
+    message = ""
+    for i in range(0, len(binary_message), 8):
+        message += chr(int(binary_message[i:i+8], 2))
+        if message[-1] == "\n":
+            break
+    print("Decoded message:", message[:-1])
 
-if args.mode == 'encode':
-    # Make sure a message was provided
-    if not args.message:
-        raise ValueError("You must provide a message to encode.")
-    # Encode the message into the image
-    encoded_image = encode_message(image, args.message)
-    # Save the encoded image to the output file
-    output_file = args.output_file or 'encoded.png'
-    encoded_image.save(output_file)
-    print(f"Message successfully encoded in {output_file}.")
-elif args.mode == 'decode':
-    # Decode the message from the image
-    message = decode_message(image)
-    # Print the decoded message to the console
-    print(f"Decoded message: {message}")
-
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Encode or decode a message in an image using LSB steganography.")
+    parser.add_argument("action", choices=["encode", "decode"], help="Whether to encode or decode a message in an image.")
+    parser.add_argument("image_path", help="The path to the image to be used.")
+    parser.add_argument("message", nargs="?", default="", help="The message to be encoded. Required for encoding, optional for decoding.")
+    args = parser.parse_args()
+    action = args.action
+    image_path = args.image_path
+    message = args.message
+    if action == "encode" and message == "":
+        parser.error("Message is required for encoding.")
+    try:
+        if action == "encode":
+            encode_image(image_path, message)
+        else:
+            decode_image(image_path)
+    except ValueError as e:
+        print("Error:", e)
