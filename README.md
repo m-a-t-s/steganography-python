@@ -1,17 +1,18 @@
-To use this steganography tool, follow these steps:
+let me explain how to use it:
 
-Save the code in a Python file, e.g. steganography.py.
+Save the script to a Python file, for example, steganography.py.
+Install the necessary dependencies by running pip install argparse pillow in your terminal or command prompt.
+Open a terminal or command prompt and navigate to the directory where the steganography.py file is saved.
+To encode a message in an image, run the following command:
 
-Open a terminal or command prompt and navigate to the directory containing the Python file.
+`python steganography.py encode input_image.png -m "Your secret message" -o output_image.png`
 
-Run the following command to encode a message in an image:
+This will encode the message "Your secret message" into the image input_image.png and save the result to output_image.png. If you don't provide an output file path, the script will save the encoded image to a file named encoded.png.
 
-`python steganography.py encode image_path -m "message to encode" -o output_image_path`
+To decode a message from an image, run the following command:
 
-Replace image_path with the path to the input image file, "message to encode" with the message you want to encode, and output_image_path with the desired path to the output image file. If the -o parameter is not provided, the encoded image will be saved as encoded_image_path in the same directory as the input image file.
+`python steganography.py decode input_image.png`
 
-Run the following command to decode a message from an image:
+This will decode the message from the image input_image.png and print it to the console.
 
-`python steganography.py decode image_path`
-
-Replace image_path with the path to the input image file. The decoded message will be printed to the console.
+Note that the input image must be in PNG format. The script uses the Pillow library to load and manipulate the images. Also, keep in mind that the message you want to encode should not be too long, as the maximum amount of information that can be embedded in an image depends on the image's dimensions.
