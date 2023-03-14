@@ -1,67 +1,138 @@
+# Python program implementing Image Steganography
+
+# PIL module is used to extract
+# pixels of image and modify it
 from PIL import Image
-import argparse
 
-def encode_image(image_path, message):
-    image = Image.open(image_path)
-    image = image.convert('RGB')
-    width, height = image.size
-    pixel_index = 0
-    message_index = 0
-    message += "\n"
-    binary_message = ''.join([format(ord(i), "08b") for i in message])
-    message_length = len(binary_message)
-    if message_length > (width * height):
-        raise ValueError("Message is too long to encode in the provided image.")
-    for row in range(height):
-        for col in range(width):
-            r, g, b = image.getpixel((col, row))
-            if message_index < message_length:
-                pixel_binary = f"{r:08b}{g:08b}{b:08b}"
-                new_pixel_binary = pixel_binary[:7] + binary_message[pixel_index] + pixel_binary[8:]
-                new_r = int(new_pixel_binary[:8], 2)
-                new_g = int(new_pixel_binary[8:16], 2)
-                new_b = int(new_pixel_binary[16:], 2)
-                image.putpixel((col, row), (new_r, new_g, new_b))
-                pixel_index += 1
-                message_index += 1
-            else:
-                break
-        if message_index >= message_length:
-            break
-    image.save("encoded_image.png")
-    print("Message encoded successfully in the provided image.")
+# Convert encoding data into 8-bit binary
+# form using ASCII value of characters
+def genData(data):
 
-def decode_image(image_path):
-    image = Image.open(image_path)
-    image = image.convert('RGB')
-    width, height = image.size
-    binary_message = ""
-    for row in range(height):
-        for col in range(width):
-            r, g, b = image.getpixel((col, row))
-            binary_message += f"{r:08b}"[-1] + f"{g:08b}"[-1] + f"{b:08b}"[-1]
-    message = ""
-    for i in range(0, len(binary_message), 8):
-        message += chr(int(binary_message[i:i+8], 2))
-        if message[-1] == "\n":
-            break
-    print("Decoded message:", message[:-1])
+		# list of binary codes
+		# of given data
+		newd = []
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Encode or decode a message in an image using LSB steganography.")
-    parser.add_argument("action", choices=["encode", "decode"], help="Whether to encode or decode a message in an image.")
-    parser.add_argument("image_path", help="The path to the image to be used.")
-    parser.add_argument("message", nargs="?", default="", help="The message to be encoded. Required for encoding, optional for decoding.")
-    args = parser.parse_args()
-    action = args.action
-    image_path = args.image_path
-    message = args.message
-    if action == "encode" and message == "":
-        parser.error("Message is required for encoding.")
-    try:
-        if action == "encode":
-            encode_image(image_path, message)
-        else:
-            decode_image(image_path)
-    except ValueError as e:
-        print("Error:", e)
+		for i in data:
+			newd.append(format(ord(i), '08b'))
+		return newd
+
+# Pixels are modified according to the
+# 8-bit binary data and finally returned
+def modPix(pix, data):
+
+	datalist = genData(data)
+	lendata = len(datalist)
+	imdata = iter(pix)
+
+	for i in range(lendata):
+
+		# Extracting 3 pixels at a time
+		pix = [value for value in imdata.__next__()[:3] +
+								imdata.__next__()[:3] +
+								imdata.__next__()[:3]]
+
+		# Pixel value should be made
+		# odd for 1 and even for 0
+		for j in range(0, 8):
+			if (datalist[i][j] == '0' and pix[j]% 2 != 0):
+				pix[j] -= 1
+
+			elif (datalist[i][j] == '1' and pix[j] % 2 == 0):
+				if(pix[j] != 0):
+					pix[j] -= 1
+				else:
+					pix[j] += 1
+				# pix[j] -= 1
+
+		# Eighth pixel of every set tells
+		# whether to stop ot read further.
+		# 0 means keep reading; 1 means thec
+		# message is over.
+		if (i == lendata - 1):
+			if (pix[-1] % 2 == 0):
+				if(pix[-1] != 0):
+					pix[-1] -= 1
+				else:
+					pix[-1] += 1
+
+		else:
+			if (pix[-1] % 2 != 0):
+				pix[-1] -= 1
+
+		pix = tuple(pix)
+		yield pix[0:3]
+		yield pix[3:6]
+		yield pix[6:9]
+
+def encode_enc(newimg, data):
+	w = newimg.size[0]
+	(x, y) = (0, 0)
+
+	for pixel in modPix(newimg.getdata(), data):
+
+		# Putting modified pixels in the new image
+		newimg.putpixel((x, y), pixel)
+		if (x == w - 1):
+			x = 0
+			y += 1
+		else:
+			x += 1
+
+# Encode data into image
+def encode():
+	img = input("Enter image name(with extension) : ")
+	image = Image.open(img, 'r')
+
+	data = input("Enter data to be encoded : ")
+	if (len(data) == 0):
+		raise ValueError('Data is empty')
+
+	newimg = image.copy()
+	encode_enc(newimg, data)
+
+	new_img_name = input("Enter the name of new image(with extension) : ")
+	newimg.save(new_img_name, str(new_img_name.split(".")[1].upper()))
+
+# Decode the data in the image
+def decode():
+	img = input("Enter image name(with extension) : ")
+	image = Image.open(img, 'r')
+
+	data = ''
+	imgdata = iter(image.getdata())
+
+	while (True):
+		pixels = [value for value in imgdata.__next__()[:3] +
+								imgdata.__next__()[:3] +
+								imgdata.__next__()[:3]]
+
+		# string of binary data
+		binstr = ''
+
+		for i in pixels[:8]:
+			if (i % 2 == 0):
+				binstr += '0'
+			else:
+				binstr += '1'
+
+		data += chr(int(binstr, 2))
+		if (pixels[-1] % 2 != 0):
+			return data
+
+# Main Function
+def main():
+	a = int(input(":: Welcome to Steganography ::\n"
+						"1. Encode\n2. Decode\n"))
+	if (a == 1):
+		encode()
+
+	elif (a == 2):
+		print("Decoded Word : " + decode())
+	else:
+		raise Exception("Enter correct input")
+
+# Driver Code
+if __name__ == '__main__' :
+
+	# Calling main function
+	main()
